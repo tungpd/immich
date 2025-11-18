@@ -27,6 +27,8 @@ make dev
 # - Both run automatically with "Immich Server and Web" task on folder open
 ```
 
+**Devcontainer:** The project includes `.devcontainer/devcontainer.json` for VS Code Remote Containers. Opening the project in a devcontainer automatically sets up the development environment with all dependencies, Docker-in-Docker support, and VS Code extensions configured.
+
 **Auto-Start Configuration:** The development environment can be configured to start automatically on system boot using systemd:
 
 ```bash
@@ -109,6 +111,7 @@ export class AlbumService extends BaseService {
 ```
 
 **Key conventions:**
+
 - Controllers (`@Controller`) are thin - delegate to services
 - Services contain business logic and orchestrate repositories
 - Repositories (`@Injectable`) handle data access and external I/O
@@ -152,7 +155,7 @@ routes/
 Use the generated TypeScript SDK from `@immich/sdk`:
 
 ```typescript
-import { getAssets, createAlbum } from '@immich/sdk';
+import { getAssets, createAlbum } from "@immich/sdk";
 
 // All API calls are typed and generated from OpenAPI spec
 const assets = await getAssets({ take: 100 });
@@ -201,7 +204,7 @@ lib/{feature}/
 **State Management (Riverpod):**
 
 ```dart
-// Use @riverpod annotation for code generation
+// Use @riverpod annotation for code generation (preferred approach)
 @riverpod
 class AssetsNotifier extends _$AssetsNotifier {
   @override
@@ -210,16 +213,22 @@ class AssetsNotifier extends _$AssetsNotifier {
   }
 }
 
-// Or StateNotifier for simple cases
-class CurrentUserProvider extends StateNotifier<UserDto?> {
-  CurrentUserProvider() : super(null);
+// Or Notifier/StateNotifier for complex state management
+class TimelineStateNotifier extends Notifier<TimelineState> {
+  @override
+  TimelineState build() => TimelineState.initial();
 }
+
+// Simple providers for services
+final userServiceProvider = Provider((ref) => UserService());
 ```
 
 **Key Principles:**
+
 - Presentation layer never directly uses repositories - always through domain services
 - Use dependency injection via Riverpod providers
 - Domain layer should not depend on presentation or infrastructure layers
+- Prefer `@riverpod` code generation for new providers
 
 **Local Database:** Isar for offline-first storage
 
@@ -229,6 +238,71 @@ class CurrentUserProvider extends StateNotifier<UserDto?> {
 make translation    # Generate i18n from i18n/en.json
 # Riverpod/Isar code gen runs automatically via build_runner
 ```
+
+### Mobile App Build (Android)
+
+**Prerequisites:**
+
+- Android SDK (installed via `sdkmanager`)
+- Java 17 JDK
+- Flutter SDK
+
+**Keystore Setup for Release Builds:**
+
+```bash
+# Generate keystore (development only - use secure passwords for production)
+cd mobile/android
+keytool -genkeypair -v -keystore key.jks -storepass immichstorepass -alias immich -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Immich, OU=Dev, O=Immich, L=Unknown, S=Unknown, C=US"
+
+# Create key.properties
+cat > key.properties << EOF
+storePassword=immichstorepass
+keyPassword=immichstorepass
+keyAlias=immich
+storeFile=key.jks
+EOF
+```
+
+**Build Commands:**
+
+```bash
+# Debug APK (unsigned, for testing)
+flutter build apk --debug
+
+# Release APK (signed, for distribution)
+flutter build apk --release
+
+# App Bundle (for Google Play Store)
+flutter build appbundle --release
+```
+
+**File Size Limit Feature:**
+The mobile app automatically filters out files >= 99MB during backup to prevent upload failures when using Cloudflare Tunnel or other size-restricted reverse proxies (which typically have a 100MB limit).
+
+**Multi-Layer Filtering Approach:**
+
+1. **Candidate Filtering** (`upload.service.dart`):
+   - Files >= 99MB are filtered out immediately after retrieving backup candidates from the database
+   - Prevents large files from appearing in the backup queue or "Remainder" count
+   - Logs: `"Filtering out file >= 99MB from candidates: filename (XX MB)"`
+   - Applied in both `startBackup()` and `startBackupWithHttpClient()` methods
+
+2. **Legacy Queue Filtering** (`backup.provider.dart`):
+   - For backward compatibility, also removes files >= 99MB from existing backup queues
+   - Runs during queue refresh operations
+   - Logs: `"Removing file >= 99MB from backup queue: filename (XX MB)"`
+
+3. **Upload Safety Check** (`backup.service.dart`):
+   - Final safety net before actual upload
+   - Catches any large files that somehow bypass earlier filters
+   - Reports files >= 99MB as errors with message: "File too large (XX MB). Maximum supported size is 99 MB."
+   - Logs: `"Safety check: Skipping file >= 99MB: filename (XX MB)"`
+
+**Key Files:**
+
+- `mobile/lib/services/upload.service.dart` - Primary candidate filtering
+- `mobile/lib/providers/backup/backup.provider.dart` - Legacy queue cleanup
+- `mobile/lib/services/backup.service.dart` - Upload safety check
 
 ### Machine Learning (Python + FastAPI)
 
@@ -243,7 +317,7 @@ uv add package-name         # Add dependency
 uv lock                     # Lock dependencies
 ```
 
-**Models:** InsightFace models (antelopev2, buffalo_*) for facial recognition, CLIP for embeddings
+**Models:** InsightFace models (antelopev2, buffalo\_\*) for facial recognition, CLIP for embeddings
 
 ## OpenAPI and Code Generation
 
@@ -268,6 +342,7 @@ pnpm --filter immich sync:open-api
 **Master translations:** All languages in root `i18n/*.json` (e.g., `i18n/en.json`, `i18n/es.json`)
 
 To add translation keys:
+
 1. Add to `i18n/en.json` as `"key": "English text"`
 2. Run `cd mobile && make translation` (generates mobile translations)
 3. Web auto-loads via `svelte-i18n`
@@ -280,6 +355,7 @@ To add translation keys:
 **Production:** `docker/docker-compose.prod.yml` - multi-stage builds in `server/Dockerfile`, `web/Dockerfile`, `machine-learning/Dockerfile`
 
 **Ports:**
+
 - 3000: Web dev server (Vite)
 - 2283: API server (NestJS)
 - 3003: ML service (FastAPI)
@@ -317,7 +393,7 @@ To add translation keys:
 Server tests use `automock()` helper from `test/utils.ts` to create mocked instances:
 
 ```typescript
-import { automock } from 'test/utils';
+import { automock } from "test/utils";
 
 const mockRepository = automock(AlbumRepository);
 mockRepository.create.mockResolvedValue(album);

@@ -355,6 +355,30 @@ class BackupNotifier extends StateNotifier<BackUpState> {
     // Remove duplicated asset from all unique assets
     allUniqueAssets.removeWhere((candidate) => duplicatedAssetIds.contains(candidate.asset.localId));
 
+    // Remove files >= 99MB from backup queue (Cloudflare Tunnel compatibility)
+    const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
+    final largeFilesToRemove = <BackupCandidate>[];
+
+    for (final candidate in allUniqueAssets) {
+      try {
+        final assetEntity = await candidate.asset.localAsync;
+        final file = await assetEntity.originFile;
+
+        if (file != null) {
+          final fileSize = file.lengthSync();
+          if (fileSize >= maxFileSize) {
+            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+            log.info("Removing file >= 99MB from backup queue: ${candidate.asset.fileName} ($fileSizeMB MB)");
+            largeFilesToRemove.add(candidate);
+          }
+        }
+      } catch (e) {
+        log.warning("Could not check file size for ${candidate.asset.fileName}: ${e.toString()}");
+      }
+    }
+
+    allUniqueAssets.removeAll(largeFilesToRemove);
+
     if (allUniqueAssets.isEmpty) {
       log.info("No assets are selected for back up");
       state = state.copyWith(
@@ -364,6 +388,34 @@ class BackupNotifier extends StateNotifier<BackUpState> {
         selectedAlbumsBackupAssetsIds: selectedAlbumsBackupAssets,
       );
     } else {
+      log.info("Backup queue contains ${allUniqueAssets.length} asset(s)");
+
+      // Log details of assets in queue for debugging
+      int largeFileCount = 0;
+      for (final candidate in allUniqueAssets.take(10)) {
+        // Log first 10 for debugging
+        try {
+          final assetEntity = await candidate.asset.localAsync;
+          final file = await assetEntity.originFile;
+          if (file != null) {
+            final fileSize = file.lengthSync();
+            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+            if (fileSize >= 99 * 1024 * 1024) {
+              largeFileCount++;
+              log.warning("⚠️ Large file still in queue: ${candidate.asset.fileName} ($fileSizeMB MB)");
+            } else {
+              log.info("  - ${candidate.asset.fileName}: $fileSizeMB MB");
+            }
+          }
+        } catch (e) {
+          log.warning("Could not check file for ${candidate.asset.fileName}: $e");
+        }
+      }
+
+      if (largeFileCount > 0) {
+        log.warning("WARNING: Found $largeFileCount file(s) >= 99MB still in backup queue!");
+      }
+
       state = state.copyWith(
         allAssetsInDatabase: allAssetsInDatabase,
         allUniqueAssets: allUniqueAssets,

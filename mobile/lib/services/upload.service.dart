@@ -126,7 +126,39 @@ class UploadService {
 
     shouldAbortQueuingTasks = false;
 
-    final candidates = await _backupRepository.getCandidates(userId);
+    final allCandidates = await _backupRepository.getCandidates(userId);
+    if (allCandidates.isEmpty) {
+      return;
+    }
+
+    // Filter out files >= 99MB
+    const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
+    final candidates = <LocalAsset>[];
+    int largeFilesSkipped = 0;
+
+    for (final asset in allCandidates) {
+      try {
+        final file = await _storageRepository.getFileForAsset(asset.id);
+        if (file != null) {
+          final fileSize = file.lengthSync();
+          if (fileSize >= maxFileSize) {
+            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+            _logger.info("Filtering out file >= 99MB from candidates: ${asset.name} ($fileSizeMB MB)");
+            largeFilesSkipped++;
+            continue;
+          }
+        }
+        candidates.add(asset);
+      } catch (e) {
+        _logger.warning("Could not check file size for ${asset.name}, including in candidates: ${e.toString()}");
+        candidates.add(asset);
+      }
+    }
+
+    if (largeFilesSkipped > 0) {
+      _logger.info("Filtered out $largeFilesSkipped file(s) >= 99MB from backup candidates");
+    }
+
     if (candidates.isEmpty) {
       return;
     }
@@ -161,7 +193,39 @@ class UploadService {
 
     shouldAbortQueuingTasks = false;
 
-    final candidates = await _backupRepository.getCandidates(userId);
+    final allCandidates = await _backupRepository.getCandidates(userId);
+    if (allCandidates.isEmpty) {
+      return;
+    }
+
+    // Filter out files >= 99MB
+    const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
+    final candidates = <LocalAsset>[];
+    int largeFilesSkipped = 0;
+
+    for (final asset in allCandidates) {
+      try {
+        final file = await _storageRepository.getFileForAsset(asset.id);
+        if (file != null) {
+          final fileSize = file.lengthSync();
+          if (fileSize >= maxFileSize) {
+            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+            _logger.info("Filtering out file >= 99MB from candidates: ${asset.name} ($fileSizeMB MB)");
+            largeFilesSkipped++;
+            continue;
+          }
+        }
+        candidates.add(asset);
+      } catch (e) {
+        _logger.warning("Could not check file size for ${asset.name}, including in candidates: ${e.toString()}");
+        candidates.add(asset);
+      }
+    }
+
+    if (largeFilesSkipped > 0) {
+      _logger.info("Filtered out $largeFilesSkipped file(s) >= 99MB from backup candidates");
+    }
+
     if (candidates.isEmpty) {
       return;
     }

@@ -69,6 +69,9 @@ export class FileUploadInterceptor implements NestInterceptor {
         _handleFile: this.handleFile.bind(this),
         _removeFile: this.removeFile.bind(this),
       },
+      limits: {
+        fileSize: Number.POSITIVE_INFINITY, // No file size limit - let the OS handle it
+      },
     });
 
     this.handlers = {

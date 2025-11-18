@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cancellation_token_http/http.dart' as http;
 import 'package:collection/collection.dart';
@@ -62,6 +63,33 @@ class BackupService {
     this._assetRepository,
     this._assetMediaRepository,
   );
+
+  /// Retry helper for transient network failures
+  Future<T> _withRetry<T>(
+    Future<T> Function() operation, {
+    int maxRetries = 3,
+    bool Function(Object)? shouldRetry,
+  }) async {
+    int attempt = 0;
+    while (true) {
+      try {
+        return await operation();
+      } catch (e) {
+        attempt++;
+        final isRetryable =
+            shouldRetry?.call(e) ?? (e is SocketException || e is TimeoutException || e is HttpException);
+
+        if (!isRetryable || attempt >= maxRetries) {
+          rethrow;
+        }
+
+        // Exponential backoff: 2^attempt seconds (2s, 4s, 8s)
+        final delaySeconds = pow(2, attempt).toInt();
+        _log.warning('Retrying operation after ${delaySeconds}s (attempt $attempt/$maxRetries): ${e.toString()}');
+        await Future.delayed(Duration(seconds: delaySeconds));
+      }
+    }
+  }
 
   Future<List<String>?> getDeviceBackupAsset() async {
     final String deviceId = Store.get(StoreKey.deviceId);
@@ -146,6 +174,28 @@ class BackupService {
 
       // Add album's name to the asset info
       for (final asset in assets) {
+        // Skip files >= 99MB (103,809,024 bytes) to prevent upload failures
+        // when using Cloudflare Tunnel or other size-restricted reverse proxies
+        const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
+
+        try {
+          final assetEntity = await asset.localAsync;
+          final file = await assetEntity.originFile;
+
+          if (file != null) {
+            final fileSize = file.lengthSync();
+
+            if (fileSize >= maxFileSize) {
+              final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+              _log.info("Skipping file >= 99MB from backup queue: ${asset.fileName} ($fileSizeMB MB)");
+              continue;
+            }
+          }
+        } catch (e) {
+          _log.warning("Could not determine file size for ${asset.fileName}, skipping: ${e.toString()}");
+          continue;
+        }
+
         List<String> albumNames = [localAlbum.name];
 
         final existingAsset = candidates.firstWhereOrNull((candidate) => candidate.asset.localId == asset.localId);
@@ -288,10 +338,14 @@ class BackupService {
             livePhotoFile = await asset.local!.loadFile(withSubtype: true, progressHandler: pmProgressHandler);
           }
         } else {
-          file = await asset.local!.originFile.timeout(const Duration(seconds: 5));
+          // Use adaptive timeout - start with 30s, can extend if needed
+          // For large files, we rely on successful initial file handle acquisition
+          final timeout = const Duration(seconds: 30);
+
+          file = await asset.local!.originFile.timeout(timeout);
 
           if (asset.local!.isLivePhoto) {
-            livePhotoFile = await asset.local!.originFileWithSubtype.timeout(const Duration(seconds: 5));
+            livePhotoFile = await asset.local!.originFileWithSubtype.timeout(timeout);
           }
         }
 
@@ -305,13 +359,30 @@ class BackupService {
             }
           }
 
+          // Check file size limit - files >= 99MB should have been filtered out earlier
+          // but this is a safety check in case they somehow made it through
+          const maxFileSizeStrict = 99 * 1024 * 1024; // 99MB in bytes
+          final fileSize = file.lengthSync();
+
+          if (fileSize >= maxFileSizeStrict) {
+            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+            _log.warning("Safety check: Skipping file >= 99MB: $originalFileName ($fileSizeMB MB)");
+            onError(
+              ErrorUploadAsset(
+                asset: asset,
+                id: asset.localId!,
+                fileCreatedAt: asset.fileCreatedAt,
+                fileName: originalFileName,
+                fileType: _getAssetType(asset.type),
+                errorMessage: "File too large ($fileSizeMB MB). Maximum supported size is 99 MB.",
+              ),
+            );
+            anyErrors = true;
+            continue;
+          }
+
           final fileStream = file.openRead();
-          final assetRawUploadData = http.MultipartFile(
-            "assetData",
-            fileStream,
-            file.lengthSync(),
-            filename: originalFileName,
-          );
+          final assetRawUploadData = http.MultipartFile("assetData", fileStream, fileSize, filename: originalFileName);
 
           final baseRequest = MultipartRequest(
             'POST',
@@ -348,7 +419,20 @@ class BackupService {
             baseRequest.fields['livePhotoVideoId'] = livePhotoVideoId;
           }
 
-          final response = await httpClient.send(baseRequest, cancellationToken: cancelToken);
+          // Upload with retry logic for transient network failures
+          final response = await _withRetry(
+            () => httpClient.send(baseRequest, cancellationToken: cancelToken),
+            shouldRetry: (error) {
+              // Don't retry on user cancellation
+              if (error is http.CancelledException) return false;
+              // Retry on network errors
+              if (error is SocketException || error is TimeoutException || error is HttpException) {
+                _log.info('Network error uploading ${asset.localId}, will retry: ${error.toString()}');
+                return true;
+              }
+              return false;
+            },
+          );
 
           final responseBody = jsonDecode(await response.stream.bytesToString());
 
