@@ -314,6 +314,8 @@ class ApiClient {
           return CheckExistingAssetsDto.fromJson(value);
         case 'CheckExistingAssetsResponseDto':
           return CheckExistingAssetsResponseDto.fromJson(value);
+        case 'ChunkedUploadStatusDto':
+          return ChunkedUploadStatusDto.fromJson(value);
         case 'Colorspace':
           return ColorspaceTypeTransformer().decode(value);
         case 'ContributorCountResponseDto':
@@ -350,12 +352,18 @@ class ApiClient {
           return FaceDto.fromJson(value);
         case 'FacialRecognitionConfig':
           return FacialRecognitionConfig.fromJson(value);
+        case 'FinalizeChunkedUploadDto':
+          return FinalizeChunkedUploadDto.fromJson(value);
         case 'FoldersResponse':
           return FoldersResponse.fromJson(value);
         case 'FoldersUpdate':
           return FoldersUpdate.fromJson(value);
         case 'ImageFormat':
           return ImageFormatTypeTransformer().decode(value);
+        case 'InitiateChunkedUploadDto':
+          return InitiateChunkedUploadDto.fromJson(value);
+        case 'InitiateChunkedUploadResponseDto':
+          return InitiateChunkedUploadResponseDto.fromJson(value);
         case 'JobCreateDto':
           return JobCreateDto.fromJson(value);
         case 'JobSettingsDto':
@@ -760,6 +768,8 @@ class ApiClient {
           return UpdateAssetDto.fromJson(value);
         case 'UpdateLibraryDto':
           return UpdateLibraryDto.fromJson(value);
+        case 'UploadChunkResponseDto':
+          return UploadChunkResponseDto.fromJson(value);
         case 'UsageByUserDto':
           return UsageByUserDto.fromJson(value);
         case 'UserAdminCreateDto':

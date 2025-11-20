@@ -22,6 +22,7 @@ import 'package:immich_mobile/repositories/asset_media.repository.dart';
 import 'package:immich_mobile/repositories/upload.repository.dart';
 import 'package:immich_mobile/services/api.service.dart';
 import 'package:immich_mobile/services/app_settings.service.dart';
+import 'package:immich_mobile/services/chunked_upload.service.dart';
 import 'package:immich_mobile/utils/debug_print.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
@@ -34,6 +35,7 @@ final uploadServiceProvider = Provider((ref) {
     ref.watch(localAssetRepository),
     ref.watch(appSettingsServiceProvider),
     ref.watch(assetMediaRepositoryProvider),
+    ref.watch(chunkedUploadServiceProvider),
   );
 
   ref.onDispose(service.dispose);
@@ -48,6 +50,7 @@ class UploadService {
     this._localAssetRepository,
     this._appSettingsService,
     this._assetMediaRepository,
+    this._chunkedUploadService,
   ) {
     _uploadRepository.onUploadStatus = _onUploadCallback;
     _uploadRepository.onTaskProgress = _onTaskProgressCallback;
@@ -59,6 +62,7 @@ class UploadService {
   final DriftLocalAssetRepository _localAssetRepository;
   final AppSettingsService _appSettingsService;
   final AssetMediaRepository _assetMediaRepository;
+  final ChunkedUploadService _chunkedUploadService;
   final Logger _logger = Logger('UploadService');
 
   final StreamController<TaskStatusUpdate> _taskStatusController = StreamController<TaskStatusUpdate>.broadcast();
@@ -131,10 +135,10 @@ class UploadService {
       return;
     }
 
-    // Filter out files >= 99MB
+    // Separate large files (>=99MB) for chunked upload vs regular upload
     const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
     final candidates = <LocalAsset>[];
-    int largeFilesSkipped = 0;
+    final largeFileCandidates = <LocalAsset>[];
 
     for (final asset in allCandidates) {
       try {
@@ -143,8 +147,8 @@ class UploadService {
           final fileSize = file.lengthSync();
           if (fileSize >= maxFileSize) {
             final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-            _logger.info("Filtering out file >= 99MB from candidates: ${asset.name} ($fileSizeMB MB)");
-            largeFilesSkipped++;
+            _logger.info("Large file will use chunked upload: ${asset.name} ($fileSizeMB MB)");
+            largeFileCandidates.add(asset);
             continue;
           }
         }
@@ -155,16 +159,18 @@ class UploadService {
       }
     }
 
-    if (largeFilesSkipped > 0) {
-      _logger.info("Filtered out $largeFilesSkipped file(s) >= 99MB from backup candidates");
+    if (largeFileCandidates.isNotEmpty) {
+      _logger.info("Found ${largeFileCandidates.length} large file(s) for chunked upload");
     }
 
-    if (candidates.isEmpty) {
+    if (candidates.isEmpty && largeFileCandidates.isEmpty) {
       return;
     }
 
     const batchSize = 100;
     int count = 0;
+
+    // Process regular files first
     for (int i = 0; i < candidates.length; i += batchSize) {
       if (shouldAbortQueuingTasks) {
         break;
@@ -183,7 +189,22 @@ class UploadService {
         count += tasks.length;
         await enqueueTasks(tasks);
 
-        onEnqueueTasks(EnqueueStatus(enqueueCount: count, totalCount: candidates.length));
+        onEnqueueTasks(EnqueueStatus(enqueueCount: count, totalCount: candidates.length + largeFileCandidates.length));
+      }
+    }
+
+    // Process large files with chunked upload
+    for (final asset in largeFileCandidates) {
+      if (shouldAbortQueuingTasks) {
+        break;
+      }
+
+      try {
+        await _uploadLargeFileWithChunking(asset);
+        count++;
+        onEnqueueTasks(EnqueueStatus(enqueueCount: count, totalCount: candidates.length + largeFileCandidates.length));
+      } catch (e) {
+        _logger.severe("Failed to upload large file ${asset.name}: $e");
       }
     }
   }
@@ -198,10 +219,10 @@ class UploadService {
       return;
     }
 
-    // Filter out files >= 99MB
+    // Separate large files (>=99MB) for chunked upload vs regular upload
     const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
     final candidates = <LocalAsset>[];
-    int largeFilesSkipped = 0;
+    final largeFileCandidates = <LocalAsset>[];
 
     for (final asset in allCandidates) {
       try {
@@ -210,8 +231,8 @@ class UploadService {
           final fileSize = file.lengthSync();
           if (fileSize >= maxFileSize) {
             final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-            _logger.info("Filtering out file >= 99MB from candidates: ${asset.name} ($fileSizeMB MB)");
-            largeFilesSkipped++;
+            _logger.info("Large file will use chunked upload: ${asset.name} ($fileSizeMB MB)");
+            largeFileCandidates.add(asset);
             continue;
           }
         }
@@ -222,15 +243,17 @@ class UploadService {
       }
     }
 
-    if (largeFilesSkipped > 0) {
-      _logger.info("Filtered out $largeFilesSkipped file(s) >= 99MB from backup candidates");
+    if (largeFileCandidates.isNotEmpty) {
+      _logger.info("Found ${largeFileCandidates.length} large file(s) for chunked upload");
     }
 
-    if (candidates.isEmpty) {
+    if (candidates.isEmpty && largeFileCandidates.isEmpty) {
       return;
     }
 
     const batchSize = 100;
+
+    // Process regular files first
     for (int i = 0; i < candidates.length; i += batchSize) {
       if (shouldAbortQueuingTasks || token.isCancelled) {
         break;
@@ -253,6 +276,26 @@ class UploadService {
 
       if (tasks.isNotEmpty && !shouldAbortQueuingTasks) {
         await _uploadRepository.backupWithDartClient(tasks, token);
+      }
+    }
+
+    // Process large files with chunked upload
+    for (final asset in largeFileCandidates) {
+      if (shouldAbortQueuingTasks || token.isCancelled) {
+        break;
+      }
+
+      // Check WiFi requirement for large files too
+      final requireWifi = _shouldRequireWiFi(asset);
+      if (requireWifi && !hasWifi) {
+        _logger.warning('Skipping large file upload for ${asset.id} because it requires WiFi');
+        continue;
+      }
+
+      try {
+        await _uploadLargeFileWithChunking(asset);
+      } catch (e) {
+        _logger.severe("Failed to upload large file ${asset.name}: $e");
       }
     }
   }
@@ -509,6 +552,32 @@ class UploadService {
       updates: Updates.statusAndProgress,
       retries: 3,
     );
+  }
+
+  /// Upload a large file using chunked upload
+  Future<void> _uploadLargeFileWithChunking(LocalAsset asset) async {
+    final file = await _storageRepository.getFileForAsset(asset.id);
+    if (file == null) {
+      throw Exception("Could not find file for asset ${asset.id}");
+    }
+
+    final deviceId = Store.get(StoreKey.deviceId);
+
+    await _chunkedUploadService.uploadFileChunked(
+      file,
+      deviceAssetId: asset.id,
+      deviceId: deviceId,
+      fileCreatedAt: asset.createdAt.toUtc(),
+      fileModifiedAt: asset.updatedAt.toUtc(),
+      duration: asset.duration.toString(),
+      filename: asset.name,
+      isFavorite: asset.isFavorite,
+      onProgress: (progress) {
+        _logger.fine("Upload progress for ${asset.name}: ${(progress * 100).toStringAsFixed(1)}%");
+      },
+    );
+
+    _logger.info("Successfully uploaded large file ${asset.name} using chunked upload");
   }
 }
 

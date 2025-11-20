@@ -8,6 +8,7 @@ import { AuditService } from 'src/services/audit.service';
 import { AuthAdminService } from 'src/services/auth-admin.service';
 import { AuthService } from 'src/services/auth.service';
 import { BackupService } from 'src/services/backup.service';
+import { ChunkedUploadService } from 'src/services/chunked-upload.service';
 import { CliService } from 'src/services/cli.service';
 import { DatabaseService } from 'src/services/database.service';
 import { DownloadService } from 'src/services/download.service';
@@ -57,6 +58,7 @@ export const services = [
   AuthService,
   AuthAdminService,
   BackupService,
+  ChunkedUploadService,
   CliService,
   DatabaseService,
   DownloadService,

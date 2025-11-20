@@ -4276,6 +4276,235 @@
         "x-immich-state": "Stable"
       }
     },
+    "/chunked-upload/initiate": {
+      "post": {
+        "operationId": "initiateUpload",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiateChunkedUploadDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiateChunkedUploadResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Chunked Upload"
+        ]
+      }
+    },
+    "/chunked-upload/{uploadId}": {
+      "delete": {
+        "operationId": "cancelUpload",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Chunked Upload"
+        ]
+      }
+    },
+    "/chunked-upload/{uploadId}/chunk": {
+      "post": {
+        "operationId": "uploadChunk",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "chunkIndex": {
+                    "type": "number"
+                  },
+                  "chunkSize": {
+                    "type": "number"
+                  },
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "chunkIndex",
+                  "chunkSize",
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadChunkResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Chunked Upload"
+        ]
+      }
+    },
+    "/chunked-upload/{uploadId}/finalize": {
+      "post": {
+        "operationId": "finalizeUpload",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeChunkedUploadDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Chunked Upload"
+        ]
+      }
+    },
+    "/chunked-upload/{uploadId}/status": {
+      "get": {
+        "operationId": "getUploadStatus",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkedUploadStatusDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          },
+          {
+            "api_key": []
+          }
+        ],
+        "tags": [
+          "Chunked Upload"
+        ]
+      }
+    },
     "/download/archive": {
       "post": {
         "description": "Download a ZIP archive containing the specified assets. The assets must have been previously requested via the \"getDownloadInfo\" endpoint.",
@@ -15690,6 +15919,63 @@
         ],
         "type": "object"
       },
+      "ChunkedUploadStatusDto": {
+        "properties": {
+          "chunkSize": {
+            "description": "Chunk size",
+            "type": "number"
+          },
+          "chunksReceived": {
+            "description": "Chunks received so far",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "complete": {
+            "description": "Whether upload is complete",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "Upload created timestamp",
+            "format": "date-time",
+            "type": "string"
+          },
+          "fileSize": {
+            "description": "Total file size",
+            "type": "number"
+          },
+          "filename": {
+            "description": "Original filename",
+            "type": "string"
+          },
+          "totalChunks": {
+            "description": "Total chunks",
+            "type": "number"
+          },
+          "updatedAt": {
+            "description": "Last updated timestamp",
+            "format": "date-time",
+            "type": "string"
+          },
+          "uploadId": {
+            "description": "Upload session ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunkSize",
+          "chunksReceived",
+          "complete",
+          "createdAt",
+          "fileSize",
+          "filename",
+          "totalChunks",
+          "updatedAt",
+          "uploadId"
+        ],
+        "type": "object"
+      },
       "Colorspace": {
         "enum": [
           "srgb",
@@ -16143,6 +16429,50 @@
         ],
         "type": "object"
       },
+      "FinalizeChunkedUploadDto": {
+        "properties": {
+          "deviceAssetId": {
+            "description": "Device asset ID",
+            "type": "string"
+          },
+          "deviceId": {
+            "description": "Device ID",
+            "type": "string"
+          },
+          "duration": {
+            "description": "Duration for videos",
+            "type": "string"
+          },
+          "fileCreatedAt": {
+            "description": "File created at timestamp (ISO 8601)",
+            "type": "string"
+          },
+          "fileModifiedAt": {
+            "description": "File modified at timestamp (ISO 8601)",
+            "type": "string"
+          },
+          "filename": {
+            "description": "Override filename",
+            "type": "string"
+          },
+          "isFavorite": {
+            "description": "Is favorite",
+            "type": "boolean"
+          },
+          "uploadId": {
+            "description": "Upload session ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceAssetId",
+          "deviceId",
+          "fileCreatedAt",
+          "fileModifiedAt",
+          "uploadId"
+        ],
+        "type": "object"
+      },
       "FoldersResponse": {
         "properties": {
           "enabled": {
@@ -16177,6 +16507,57 @@
           "webp"
         ],
         "type": "string"
+      },
+      "InitiateChunkedUploadDto": {
+        "properties": {
+          "checksum": {
+            "description": "SHA1 checksum of the complete file",
+            "type": "string"
+          },
+          "chunkSize": {
+            "description": "Size of each chunk in bytes (except possibly the last one)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "fileSize": {
+            "description": "Total file size in bytes",
+            "minimum": 1,
+            "type": "number"
+          },
+          "filename": {
+            "description": "Original filename",
+            "type": "string"
+          },
+          "totalChunks": {
+            "description": "Total number of chunks",
+            "minimum": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "chunkSize",
+          "fileSize",
+          "filename",
+          "totalChunks"
+        ],
+        "type": "object"
+      },
+      "InitiateChunkedUploadResponseDto": {
+        "properties": {
+          "chunkSize": {
+            "description": "Chunk size to use for uploads",
+            "type": "number"
+          },
+          "uploadId": {
+            "description": "Unique upload session ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunkSize",
+          "uploadId"
+        ],
+        "type": "object"
       },
       "JobCreateDto": {
         "properties": {
@@ -22004,6 +22385,38 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "UploadChunkResponseDto": {
+        "properties": {
+          "chunkIndex": {
+            "description": "Chunk index that was uploaded",
+            "type": "number"
+          },
+          "chunksReceived": {
+            "description": "Total chunks received so far",
+            "type": "number"
+          },
+          "complete": {
+            "description": "Whether all chunks have been received",
+            "type": "boolean"
+          },
+          "totalChunks": {
+            "description": "Total chunks expected",
+            "type": "number"
+          },
+          "uploadId": {
+            "description": "Upload session ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunkIndex",
+          "chunksReceived",
+          "complete",
+          "totalChunks",
+          "uploadId"
+        ],
         "type": "object"
       },
       "UsageByUserDto": {

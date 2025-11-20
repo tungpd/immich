@@ -359,28 +359,7 @@ class BackupService {
             }
           }
 
-          // Check file size limit - files >= 99MB should have been filtered out earlier
-          // but this is a safety check in case they somehow made it through
-          const maxFileSizeStrict = 99 * 1024 * 1024; // 99MB in bytes
           final fileSize = file.lengthSync();
-
-          if (fileSize >= maxFileSizeStrict) {
-            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-            _log.warning("Safety check: Skipping file >= 99MB: $originalFileName ($fileSizeMB MB)");
-            onError(
-              ErrorUploadAsset(
-                asset: asset,
-                id: asset.localId!,
-                fileCreatedAt: asset.fileCreatedAt,
-                fileName: originalFileName,
-                fileType: _getAssetType(asset.type),
-                errorMessage: "File too large ($fileSizeMB MB). Maximum supported size is 99 MB.",
-              ),
-            );
-            anyErrors = true;
-            continue;
-          }
-
           final fileStream = file.openRead();
           final assetRawUploadData = http.MultipartFile("assetData", fileStream, fileSize, filename: originalFileName);
 

@@ -133,6 +133,11 @@ Class | Method | HTTP request | Description
 *AuthenticationApi* | [**unlockAuthSession**](doc//AuthenticationApi.md#unlockauthsession) | **POST** /auth/session/unlock | Unlock auth session
 *AuthenticationApi* | [**validateAccessToken**](doc//AuthenticationApi.md#validateaccesstoken) | **POST** /auth/validateToken | Validate access token
 *AuthenticationAdminApi* | [**unlinkAllOAuthAccountsAdmin**](doc//AuthenticationAdminApi.md#unlinkalloauthaccountsadmin) | **POST** /admin/auth/unlink-all | Unlink all OAuth accounts
+*ChunkedUploadApi* | [**cancelUpload**](doc//ChunkedUploadApi.md#cancelupload) | **DELETE** /chunked-upload/{uploadId} | 
+*ChunkedUploadApi* | [**finalizeUpload**](doc//ChunkedUploadApi.md#finalizeupload) | **POST** /chunked-upload/{uploadId}/finalize | 
+*ChunkedUploadApi* | [**getUploadStatus**](doc//ChunkedUploadApi.md#getuploadstatus) | **GET** /chunked-upload/{uploadId}/status | 
+*ChunkedUploadApi* | [**initiateUpload**](doc//ChunkedUploadApi.md#initiateupload) | **POST** /chunked-upload/initiate | 
+*ChunkedUploadApi* | [**uploadChunk**](doc//ChunkedUploadApi.md#uploadchunk) | **POST** /chunked-upload/{uploadId}/chunk | 
 *DeprecatedApi* | [**createPartnerDeprecated**](doc//DeprecatedApi.md#createpartnerdeprecated) | **POST** /partners/{id} | Create a partner
 *DeprecatedApi* | [**getAllUserAssetsByDeviceId**](doc//DeprecatedApi.md#getalluserassetsbydeviceid) | **GET** /assets/device/{deviceId} | Retrieve assets by device ID
 *DeprecatedApi* | [**getDeltaSync**](doc//DeprecatedApi.md#getdeltasync) | **POST** /sync/delta-sync | Get delta sync for user
@@ -372,6 +377,7 @@ Class | Method | HTTP request | Description
  - [ChangePasswordDto](doc//ChangePasswordDto.md)
  - [CheckExistingAssetsDto](doc//CheckExistingAssetsDto.md)
  - [CheckExistingAssetsResponseDto](doc//CheckExistingAssetsResponseDto.md)
+ - [ChunkedUploadStatusDto](doc//ChunkedUploadStatusDto.md)
  - [Colorspace](doc//Colorspace.md)
  - [ContributorCountResponseDto](doc//ContributorCountResponseDto.md)
  - [CreateAlbumDto](doc//CreateAlbumDto.md)
@@ -390,9 +396,12 @@ Class | Method | HTTP request | Description
  - [ExifResponseDto](doc//ExifResponseDto.md)
  - [FaceDto](doc//FaceDto.md)
  - [FacialRecognitionConfig](doc//FacialRecognitionConfig.md)
+ - [FinalizeChunkedUploadDto](doc//FinalizeChunkedUploadDto.md)
  - [FoldersResponse](doc//FoldersResponse.md)
  - [FoldersUpdate](doc//FoldersUpdate.md)
  - [ImageFormat](doc//ImageFormat.md)
+ - [InitiateChunkedUploadDto](doc//InitiateChunkedUploadDto.md)
+ - [InitiateChunkedUploadResponseDto](doc//InitiateChunkedUploadResponseDto.md)
  - [JobCreateDto](doc//JobCreateDto.md)
  - [JobSettingsDto](doc//JobSettingsDto.md)
  - [LibraryResponseDto](doc//LibraryResponseDto.md)
@@ -595,6 +604,7 @@ Class | Method | HTTP request | Description
  - [UpdateAlbumUserDto](doc//UpdateAlbumUserDto.md)
  - [UpdateAssetDto](doc//UpdateAssetDto.md)
  - [UpdateLibraryDto](doc//UpdateLibraryDto.md)
+ - [UploadChunkResponseDto](doc//UploadChunkResponseDto.md)
  - [UsageByUserDto](doc//UsageByUserDto.md)
  - [UserAdminCreateDto](doc//UserAdminCreateDto.md)
  - [UserAdminDeleteDto](doc//UserAdminDeleteDto.md)

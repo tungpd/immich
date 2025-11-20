@@ -276,33 +276,35 @@ flutter build apk --release
 flutter build appbundle --release
 ```
 
-**File Size Limit Feature:**
-The mobile app automatically filters out files >= 99MB during backup to prevent upload failures when using Cloudflare Tunnel or other size-restricted reverse proxies (which typically have a 100MB limit).
+**Chunked Upload Feature:**
+The mobile app uses chunked upload for files >= 99MB to handle large files when using Cloudflare Tunnel or other size-restricted reverse proxies (which typically have a 100MB limit). Files are split into 99MB chunks and uploaded sequentially.
 
-**Multi-Layer Filtering Approach:**
+**Upload Flow for Large Files:**
 
-1. **Candidate Filtering** (`upload.service.dart`):
-   - Files >= 99MB are filtered out immediately after retrieving backup candidates from the database
-   - Prevents large files from appearing in the backup queue or "Remainder" count
-   - Logs: `"Filtering out file >= 99MB from candidates: filename (XX MB)"`
+1. **File Size Detection** (`upload.service.dart`):
+   - Files >= 99MB are detected during candidate processing
+   - Separated into `largeFileCandidates` list for chunked upload
+   - Logs: `"Large file will use chunked upload: filename (XX MB)"`
    - Applied in both `startBackup()` and `startBackupWithHttpClient()` methods
 
-2. **Legacy Queue Filtering** (`backup.provider.dart`):
-   - For backward compatibility, also removes files >= 99MB from existing backup queues
-   - Runs during queue refresh operations
-   - Logs: `"Removing file >= 99MB from backup queue: filename (XX MB)"`
+2. **Chunked Upload Service** (`chunked_upload.service.dart`):
+   - Handles initiation, chunk streaming, and finalization
+   - Uses 99MB chunks (under 100MB limit)
+   - Provides progress callbacks during upload
+   - Memory-efficient streaming from disk
 
-3. **Upload Safety Check** (`backup.service.dart`):
-   - Final safety net before actual upload
-   - Catches any large files that somehow bypass earlier filters
-   - Reports files >= 99MB as errors with message: "File too large (XX MB). Maximum supported size is 99 MB."
-   - Logs: `"Safety check: Skipping file >= 99MB: filename (XX MB)"`
+3. **Server-Side Processing** (`chunked-upload.service.ts`):
+   - Receives and stores chunks temporarily
+   - Merges chunks after all are received
+   - Creates asset in database upon successful completion
+   - Automatic cleanup of expired upload sessions
 
 **Key Files:**
 
-- `mobile/lib/services/upload.service.dart` - Primary candidate filtering
-- `mobile/lib/providers/backup/backup.provider.dart` - Legacy queue cleanup
-- `mobile/lib/services/backup.service.dart` - Upload safety check
+- `mobile/lib/services/upload.service.dart` - Large file detection and routing
+- `mobile/lib/services/chunked_upload.service.dart` - Chunked upload client
+- `server/src/services/chunked-upload.service.ts` - Server-side chunk processing
+- `server/src/repositories/chunked-upload.repository.ts` - Database operations
 
 ### Machine Learning (Python + FastAPI)
 

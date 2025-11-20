@@ -641,6 +641,74 @@ export type AuthStatusResponseDto = {
 export type ValidateAccessTokenResponseDto = {
     authStatus: boolean;
 };
+export type InitiateChunkedUploadDto = {
+    /** SHA1 checksum of the complete file */
+    checksum?: string;
+    /** Size of each chunk in bytes (except possibly the last one) */
+    chunkSize: number;
+    /** Total file size in bytes */
+    fileSize: number;
+    /** Original filename */
+    filename: string;
+    /** Total number of chunks */
+    totalChunks: number;
+};
+export type InitiateChunkedUploadResponseDto = {
+    /** Chunk size to use for uploads */
+    chunkSize: number;
+    /** Unique upload session ID */
+    uploadId: string;
+};
+export type UploadChunkResponseDto = {
+    /** Chunk index that was uploaded */
+    chunkIndex: number;
+    /** Total chunks received so far */
+    chunksReceived: number;
+    /** Whether all chunks have been received */
+    complete: boolean;
+    /** Total chunks expected */
+    totalChunks: number;
+    /** Upload session ID */
+    uploadId: string;
+};
+export type FinalizeChunkedUploadDto = {
+    /** Device asset ID */
+    deviceAssetId: string;
+    /** Device ID */
+    deviceId: string;
+    /** Duration for videos */
+    duration?: string;
+    /** File created at timestamp (ISO 8601) */
+    fileCreatedAt: string;
+    /** File modified at timestamp (ISO 8601) */
+    fileModifiedAt: string;
+    /** Override filename */
+    filename?: string;
+    /** Is favorite */
+    isFavorite?: boolean;
+    /** Upload session ID */
+    uploadId: string;
+};
+export type ChunkedUploadStatusDto = {
+    /** Chunk size */
+    chunkSize: number;
+    /** Chunks received so far */
+    chunksReceived: number[];
+    /** Whether upload is complete */
+    complete: boolean;
+    /** Upload created timestamp */
+    createdAt: string;
+    /** Total file size */
+    fileSize: number;
+    /** Original filename */
+    filename: string;
+    /** Total chunks */
+    totalChunks: number;
+    /** Last updated timestamp */
+    updatedAt: string;
+    /** Upload session ID */
+    uploadId: string;
+};
 export type AssetIdsDto = {
     assetIds: string[];
 };
@@ -2750,6 +2818,63 @@ export function validateAccessToken(opts?: Oazapfts.RequestOpts) {
     }>("/auth/validateToken", {
         ...opts,
         method: "POST"
+    }));
+}
+export function initiateUpload({ initiateChunkedUploadDto }: {
+    initiateChunkedUploadDto: InitiateChunkedUploadDto;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 201;
+        data: InitiateChunkedUploadResponseDto;
+    }>("/chunked-upload/initiate", oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: initiateChunkedUploadDto
+    })));
+}
+export function cancelUpload({ uploadId }: {
+    uploadId: string;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchText(`/chunked-upload/${encodeURIComponent(uploadId)}`, {
+        ...opts,
+        method: "DELETE"
+    }));
+}
+export function uploadChunk({ uploadId, body }: {
+    uploadId: string;
+    body: {
+        chunkIndex: number;
+        chunkSize: number;
+        file: Blob;
+    };
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 201;
+        data: UploadChunkResponseDto;
+    }>(`/chunked-upload/${encodeURIComponent(uploadId)}/chunk`, oazapfts.multipart({
+        ...opts,
+        method: "POST",
+        body
+    })));
+}
+export function finalizeUpload({ uploadId, finalizeChunkedUploadDto }: {
+    uploadId: string;
+    finalizeChunkedUploadDto: FinalizeChunkedUploadDto;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchText(`/chunked-upload/${encodeURIComponent(uploadId)}/finalize`, oazapfts.json({
+        ...opts,
+        method: "POST",
+        body: finalizeChunkedUploadDto
+    })));
+}
+export function getUploadStatus({ uploadId }: {
+    uploadId: string;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+        data: ChunkedUploadStatusDto;
+    }>(`/chunked-upload/${encodeURIComponent(uploadId)}/status`, {
+        ...opts
     }));
 }
 /**

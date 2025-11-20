@@ -355,30 +355,6 @@ class BackupNotifier extends StateNotifier<BackUpState> {
     // Remove duplicated asset from all unique assets
     allUniqueAssets.removeWhere((candidate) => duplicatedAssetIds.contains(candidate.asset.localId));
 
-    // Remove files >= 99MB from backup queue (Cloudflare Tunnel compatibility)
-    const maxFileSize = 99 * 1024 * 1024; // 99MB in bytes
-    final largeFilesToRemove = <BackupCandidate>[];
-
-    for (final candidate in allUniqueAssets) {
-      try {
-        final assetEntity = await candidate.asset.localAsync;
-        final file = await assetEntity.originFile;
-
-        if (file != null) {
-          final fileSize = file.lengthSync();
-          if (fileSize >= maxFileSize) {
-            final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-            log.info("Removing file >= 99MB from backup queue: ${candidate.asset.fileName} ($fileSizeMB MB)");
-            largeFilesToRemove.add(candidate);
-          }
-        }
-      } catch (e) {
-        log.warning("Could not check file size for ${candidate.asset.fileName}: ${e.toString()}");
-      }
-    }
-
-    allUniqueAssets.removeAll(largeFilesToRemove);
-
     if (allUniqueAssets.isEmpty) {
       log.info("No assets are selected for back up");
       state = state.copyWith(

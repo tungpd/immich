@@ -6,6 +6,7 @@ import { ApiKeyRepository } from 'src/repositories/api-key.repository';
 import { AssetJobRepository } from 'src/repositories/asset-job.repository';
 import { AssetRepository } from 'src/repositories/asset.repository';
 import { AuditRepository } from 'src/repositories/audit.repository';
+import { ChunkedUploadRepository } from 'src/repositories/chunked-upload.repository';
 import { ConfigRepository } from 'src/repositories/config.repository';
 import { CronRepository } from 'src/repositories/cron.repository';
 import { CryptoRepository } from 'src/repositories/crypto.repository';
@@ -58,6 +59,7 @@ export const repositories = [
   ApiKeyRepository,
   AssetRepository,
   AssetJobRepository,
+  ChunkedUploadRepository,
   ConfigRepository,
   CronRepository,
   CryptoRepository,

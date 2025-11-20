@@ -16,6 +16,7 @@ import {
 } from 'src/enum';
 import { AlbumTable } from 'src/schema/tables/album.table';
 import { AssetExifTable } from 'src/schema/tables/asset-exif.table';
+import { ChunkedUploadTable } from 'src/schema/tables/chunked-upload.table';
 import { PluginActionTable, PluginFilterTable, PluginTable } from 'src/schema/tables/plugin.table';
 import { WorkflowActionTable, WorkflowFilterTable, WorkflowTable } from 'src/schema/tables/workflow.table';
 import { UserMetadataItem } from 'src/types';
@@ -209,6 +210,8 @@ export type AuthSession = {
   id: string;
   hasElevatedPermission: boolean;
 };
+
+export type ChunkedUpload = Selectable<ChunkedUploadTable>;
 
 export type Partner = {
   sharedById: string;

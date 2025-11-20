@@ -22,6 +22,7 @@ import { ApiKeyRepository } from 'src/repositories/api-key.repository';
 import { AssetJobRepository } from 'src/repositories/asset-job.repository';
 import { AssetRepository } from 'src/repositories/asset.repository';
 import { AuditRepository } from 'src/repositories/audit.repository';
+import { ChunkedUploadRepository } from 'src/repositories/chunked-upload.repository';
 import { ConfigRepository } from 'src/repositories/config.repository';
 import { CronRepository } from 'src/repositories/cron.repository';
 import { CryptoRepository } from 'src/repositories/crypto.repository';
@@ -215,6 +216,7 @@ export type ServiceOverrides = {
   audit: AuditRepository;
   asset: AssetRepository;
   assetJob: AssetJobRepository;
+  chunkedUpload: ChunkedUploadRepository;
   config: ConfigRepository;
   cron: CronRepository;
   crypto: CryptoRepository;
@@ -291,6 +293,7 @@ export const newTestService = <T extends BaseService>(
     albumUser: automock(AlbumUserRepository),
     asset: newAssetRepositoryMock(),
     assetJob: automock(AssetJobRepository),
+    chunkedUpload: automock(ChunkedUploadRepository),
     config: newConfigRepositoryMock(),
     database: newDatabaseRepositoryMock(),
     downloadRepository: automock(DownloadRepository, { strict: false }),
@@ -348,6 +351,7 @@ export const newTestService = <T extends BaseService>(
     overrides.asset || (mocks.asset as As<AssetRepository>),
     overrides.assetJob || (mocks.assetJob as As<AssetJobRepository>),
     overrides.audit || (mocks.audit as As<AuditRepository>),
+    overrides.chunkedUpload || (mocks.chunkedUpload as As<ChunkedUploadRepository>),
     overrides.config || (mocks.config as As<ConfigRepository> as ConfigRepository),
     overrides.cron || (mocks.cron as As<CronRepository>),
     overrides.crypto || (mocks.crypto as As<CryptoRepository>),

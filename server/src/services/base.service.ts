@@ -13,6 +13,7 @@ import { ApiKeyRepository } from 'src/repositories/api-key.repository';
 import { AssetJobRepository } from 'src/repositories/asset-job.repository';
 import { AssetRepository } from 'src/repositories/asset.repository';
 import { AuditRepository } from 'src/repositories/audit.repository';
+import { ChunkedUploadRepository } from 'src/repositories/chunked-upload.repository';
 import { ConfigRepository } from 'src/repositories/config.repository';
 import { CronRepository } from 'src/repositories/cron.repository';
 import { CryptoRepository } from 'src/repositories/crypto.repository';
@@ -69,6 +70,7 @@ export const BASE_SERVICE_DEPENDENCIES = [
   AssetRepository,
   AssetJobRepository,
   AuditRepository,
+  ChunkedUploadRepository,
   ConfigRepository,
   CronRepository,
   CryptoRepository,
@@ -126,6 +128,7 @@ export class BaseService {
     protected assetRepository: AssetRepository,
     protected assetJobRepository: AssetJobRepository,
     protected auditRepository: AuditRepository,
+    protected chunkedUploadRepository: ChunkedUploadRepository,
     protected configRepository: ConfigRepository,
     protected cronRepository: CronRepository,
     protected cryptoRepository: CryptoRepository,
